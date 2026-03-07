@@ -111,7 +111,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./src
-          file: ./src/Dockerfile
+          file: ./src/Review-Filmes.Web/Dockerfile
           load: true
           push: false
           tags: |
