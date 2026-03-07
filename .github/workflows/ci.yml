@@ -1,0 +1,139 @@
+name: Pipeline Etapa CI
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
+  packages: read
+
+jobs:
+  unit-testes:
+    name: Testes unitários
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.300
+
+      - name: Restore
+        working-directory: ./src
+        run: dotnet restore Review-Filmes.sln
+
+      - name: Executando testes unitários
+        working-directory: ./src
+        run: dotnet test ./Review-Filmes.Test.Unit/Review-Filmes.Test.Unit.csproj --no-restore --verbosity normal
+
+  integration-testes:
+    name: Testes de integração
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: review
+          POSTGRES_PASSWORD: postgrespwd
+          POSTGRES_DB: review-filmes
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.300
+
+      - name: Restore
+        working-directory: ./src
+        run: dotnet restore Review-Filmes.sln
+
+      - name: Executando testes de integração
+        working-directory: ./src
+        run: dotnet test ./Review-Filmes.Test.Integration/Review-Filmes.Test.Integration.csproj --no-restore --verbosity normal
+        env:
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=review-filmes;Username=review;Password=postgrespwd"
+
+  ci:
+    name: ci-${{ inputs.environment }}
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    needs:
+      - unit-testes
+      - integration-testes
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.300
+
+      - name: Restore
+        working-directory: ./src
+        run: dotnet restore Review-Filmes.sln
+
+      - name: Build
+        working-directory: ./src
+        run: dotnet build Review-Filmes.sln --no-restore
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ secrets.ARN_ROLE }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Definir tag SHA curta
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./src
+          file: ./src/Dockerfile
+          load: true
+          push: false
+          tags: |
+            ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.STAGE }}-hello-app:latest
+            ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.STAGE }}-hello-app:${{ env.SHORT_SHA }}
+
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@0.23.0
+        with:
+          scan-type: image
+          image-ref: ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.STAGE }}-hello-app:${{ env.SHORT_SHA }}
+          format: sarif
+          output: trivy-docker-result.sarif
+          severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
+
+      - name: Upload SARIF para S3
+        if: always()
+        run: |
+          aws s3 cp trivy-docker-result.sarif \
+            s3://${{ secrets.BUCKET_PATH }}/${{ vars.STAGE }}/sast/hello-world-${{ env.SHORT_SHA }}.sarif
+
+      - name: Push image
+        run: |
+          docker push ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.STAGE }}-hello-app:${SHORT_SHA}
+          docker push ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.STAGE }}-hello-app:latest
