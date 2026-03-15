@@ -1,0 +1,86 @@
+name: Deploy no Kubernetes
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+        description: "Ambiente: hml ou prd"
+
+permissions:
+  id-token: write
+  contents: read
+  security-events: write
+  packages: read
+
+jobs:
+  deploy:
+    name: Deploy ArgoCD
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/wallafidevops/template-argocd-kustomize:0.1.0
+
+    defaults:
+      run:
+        shell: /bin/bash -eo pipefail {0}
+
+    environment: ${{ inputs.environment }}
+
+    env:
+      AWS_ECR_URI: ${{ vars.ID_ACCOUNT }}.dkr.ecr.us-east-1.amazonaws.com
+      IMAGE_NAME: review-filmes
+      ARGOCD_SERVER: argocd.app.wsnobrega.life
+      ARGOCD_APP_NAME: review-filmes
+      STAGE: ${{ inputs.environment }}
+      GIT_BOT_USER: github-actions[bot]
+      GIT_BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+
+    steps:
+      - name: Checkout repositório GitOps
+        uses: actions/checkout@v4
+        with:
+          repository: wallafidevops/desafio-actions-eks-kustomize-2026
+          ref: ${{ github.ref_name }}
+          token: ${{ secrets.GITOPS_TOKEN }} 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
+          path: desafio-actions-eks-kustomize-2026
+
+      - name: Configurar Git
+        run: |
+          git config --global user.name "$GIT_BOT_USER"
+          git config --global user.email "$GIT_BOT_EMAIL"
+
+      - name: Atualizar imagem no overlay
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          OVERLAY_DIR="desafio-actions-eks-kustomize-2026/k8s/deploy/${STAGE}"
+
+          test -d "$OVERLAY_DIR" || { echo "Overlay não encontrado: $OVERLAY_DIR"; exit 1; }
+
+          cd "$OVERLAY_DIR"
+
+          kustomize edit set image \
+            "$AWS_ECR_URI/placeholder=$AWS_ECR_URI/${STAGE}-${IMAGE_NAME}:${SHORT_SHA}"
+
+          cd - >/dev/null
+
+          git -C desafio-actions-eks-kustomize-2026 add "k8s/deploy/${STAGE}/kustomization.yaml"
+
+          if git -C desafio-actions-eks-kustomize-2026-2026 diff --cached --quiet; then
+            echo "Nenhuma mudança detectada."
+            exit 0
+          fi
+
+          git -C desafio-actions-eks-kustomize-2026 commit -m "[BOT] Atualiza imagem para ${AWS_ECR_URI}/${STAGE}-${IMAGE_NAME}:${SHORT_SHA}"
+          git -C desafio-actions-eks-kustomize-2026 push origin HEAD:${{ github.ref_name }}
+
+    #   - name: Sincronizar com ArgoCD
+    #     run: |
+    #       argocd login "$ARGOCD_SERVER" \
+    #         --insecure \
+    #         --username admin \
+    #         --password "${{ secrets.ARGOCD_PASSWORD }}" \
+    #         --grpc-web
+
+    #       argocd app sync "$STAGE-$ARGOCD_APP_NAME" --force --prune --grpc-web
