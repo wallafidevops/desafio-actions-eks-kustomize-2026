@@ -76,12 +76,12 @@ jobs:
           git -C desafio-actions-eks-kustomize-2026 commit -m "[BOT] Atualiza imagem para ${AWS_ECR_URI}/${STAGE}-${IMAGE_NAME}:${SHORT_SHA}"
           git -C desafio-actions-eks-kustomize-2026 push origin HEAD:${{ github.ref_name }}
 
-    #   - name: Sincronizar com ArgoCD
-    #     run: |
-    #       argocd login "$ARGOCD_SERVER" \
-    #         --insecure \
-    #         --username admin \
-    #         --password "${{ secrets.ARGOCD_PASSWORD }}" \
-    #         --grpc-web
+      - name: Sincronizar com ArgoCD
+        run: |
+          argocd login "$ARGOCD_SERVER" \
+            --insecure \
+            --username admin \
+            --password "${{ secrets.ARGOCD_PASSWORD }}" \
+            --grpc-web
 
-    #       argocd app sync "$STAGE-$ARGOCD_APP_NAME" --force --prune --grpc-web
+          argocd app sync "$STAGE-$ARGOCD_APP_NAME" --force --prune --grpc-web
