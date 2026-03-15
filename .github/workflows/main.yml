@@ -14,9 +14,9 @@ on:
       - develop
     types:
       - closed 
-    # paths-ignore:
-    #   - k8s/deploy/prd/*
-    #   - k8s/deploy/hml/*    
+    paths-ignore:
+      - k8s/deploy/prd/*
+      - k8s/deploy/hml/*    
   workflow_dispatch:  
 ##role : gha-wallafidevops-adminless
 
@@ -48,4 +48,21 @@ jobs:
       environment: prod
     secrets: inherit
 
+  cd-dev:
+    name: cd-dev  
+    if: github.event.pull_request.merged == true && github.base_ref == 'develop'
+    needs: [ci-dev]
+    uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/cd.yml@develop
+    with:
+      environment: dev  
+    secrets: inherit
+
+  cd-prod:
+    name: cd-prod
+    if: github.event.pull_request.merged == true && github.base_ref == 'main'
+    needs: [ci-prod]
+    uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/cd.yml@main
+    with:
+      environment: prod
+    secrets: inherit
 
