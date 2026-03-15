@@ -43,7 +43,7 @@ jobs:
         with:
           repository: wallafidevops/desafio-actions-eks-kustomize-2026
           ref: ${{ github.ref_name }}
-          token: ${{ secrets.GITOPS_TOKEN }} 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
+          token: ${{ secrets.GITOPS_TOKEN }}
           path: desafio-actions-eks-kustomize-2026
 
       - name: Configurar Git
@@ -51,6 +51,7 @@ jobs:
           git config --global user.name "$GIT_BOT_USER"
           git config --global user.email "$GIT_BOT_EMAIL"
 
+          
       - name: Atualizar imagem no overlay
         run: |
           SHORT_SHA="${GITHUB_SHA::7}"
