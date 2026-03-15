@@ -51,7 +51,7 @@ jobs:
           git config --global user.name "$GIT_BOT_USER"
           git config --global user.email "$GIT_BOT_EMAIL"
 
-          
+
       - name: Atualizar imagem no overlay
         run: |
           SHORT_SHA="${GITHUB_SHA::7}"
@@ -68,7 +68,7 @@ jobs:
 
           git -C desafio-actions-eks-kustomize-2026 add "k8s/deploy/${STAGE}/kustomization.yaml"
 
-          if git -C desafio-actions-eks-kustomize-2026-2026 diff --cached --quiet; then
+          if git -C desafio-actions-eks-kustomize-2026 diff --cached --quiet; then
             echo "Nenhuma mudança detectada."
             exit 0
           fi
