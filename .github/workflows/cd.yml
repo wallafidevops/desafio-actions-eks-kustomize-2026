@@ -19,7 +19,7 @@ jobs:
   deploy:
     name: Deploy ArgoCD
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
+    timeout-minutes: 20
 
     container:
       image: ghcr.io/wallafidevops/template-argocd-kustomize:0.1.0
@@ -39,13 +39,13 @@ jobs:
       GIT_BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
 
     steps:
-      - name: Definir branch do GitOps
+      - name: Definir branch, overlay e repositório
         id: gitops
         run: |
           if [ "${{ inputs.environment }}" = "prod" ]; then
             echo "branch=main" >> $GITHUB_OUTPUT
-            echo "overlay=prd" >> $GITHUB_OUTPUT
-            echo "repo_name=prd-${IMAGE_NAME}" >> $GITHUB_OUTPUT
+            echo "overlay=prod" >> $GITHUB_OUTPUT
+            echo "repo_name=prod-${IMAGE_NAME}" >> $GITHUB_OUTPUT
           else
             echo "branch=develop" >> $GITHUB_OUTPUT
             echo "overlay=dev" >> $GITHUB_OUTPUT
@@ -58,7 +58,8 @@ jobs:
           repository: wallafidevops/desafio-actions-eks-kustomize-2026
           ref: ${{ steps.gitops.outputs.branch }}
           token: ${{ secrets.GITOPS_TOKEN }}
-          path: desafio-actions-eks-kustomize-2026
+          path: gitops
+          persist-credentials: true
 
       - name: Configurar Git
         run: |
@@ -67,7 +68,7 @@ jobs:
 
       - name: Atualizar imagem no overlay
         run: |
-          OVERLAY_DIR="desafio-actions-eks-kustomize-2026/k8s/deploy/${{ steps.gitops.outputs.overlay }}"
+          OVERLAY_DIR="gitops/k8s/deploy/${{ steps.gitops.outputs.overlay }}"
 
           test -d "$OVERLAY_DIR" || { echo "Overlay não encontrado: $OVERLAY_DIR"; exit 1; }
 
@@ -76,17 +77,22 @@ jobs:
           kustomize edit set image \
             "$AWS_ECR_URI/placeholder=$AWS_ECR_URI/${{ steps.gitops.outputs.repo_name }}:${IMAGE_TAG}"
 
-          cd - >/dev/null
+      - name: Validar render do Kustomize
+        run: |
+          OVERLAY_DIR="gitops/k8s/deploy/${{ steps.gitops.outputs.overlay }}"
+          kustomize build "$OVERLAY_DIR" >/dev/null
 
-          git -C desafio-actions-eks-kustomize-2026 add "k8s/deploy/${{ steps.gitops.outputs.overlay }}/kustomization.yaml"
+      - name: Commit e push no GitOps
+        run: |
+          git -C gitops add "k8s/deploy/${{ steps.gitops.outputs.overlay }}/kustomization.yaml"
 
-          if git -C desafio-actions-eks-kustomize-2026 diff --cached --quiet; then
+          if git -C gitops diff --cached --quiet; then
             echo "Nenhuma mudança detectada."
             exit 0
           fi
 
-          git -C desafio-actions-eks-kustomize-2026 commit -m "[BOT][${STAGE^^}] Atualiza imagem para ${AWS_ECR_URI}/${{ steps.gitops.outputs.repo_name }}:${IMAGE_TAG}"
-          git -C desafio-actions-eks-kustomize-2026 push origin HEAD:${{ steps.gitops.outputs.branch }}
+          git -C gitops commit -m "[BOT][${STAGE^^}] Atualiza imagem para ${AWS_ECR_URI}/${{ steps.gitops.outputs.repo_name }}:${IMAGE_TAG}"
+          git -C gitops push origin HEAD:${{ steps.gitops.outputs.branch }}
 
       - name: Sincronizar com ArgoCD
         run: |
