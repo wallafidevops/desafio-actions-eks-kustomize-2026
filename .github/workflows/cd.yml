@@ -108,3 +108,4 @@ jobs:
             --grpc-web
 
           argocd app sync "${STAGE}-${ARGOCD_APP_NAME}" --force --prune --grpc-web
+          
