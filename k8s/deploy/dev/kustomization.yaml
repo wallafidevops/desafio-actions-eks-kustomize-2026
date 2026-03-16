@@ -12,6 +12,9 @@ resources:
 - ./postgre.yaml
 
 images:
+- name: .dkr.ecr.us-east-1.amazonaws.com/placeholder
+  newName: .dkr.ecr.us-east-1.amazonaws.com/dev-review-filmes
+  newTag: 06aa78b
 - name: 216989136189.dkr.ecr.us-east-1.amazonaws.com/placeholder
   newName: 216989136189.dkr.ecr.us-east-1.amazonaws.com/dev-review-filmes
   newTag: 155f5d8
