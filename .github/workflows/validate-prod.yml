@@ -2,14 +2,15 @@ name: Validate Prod Promotion
 
 on:
   workflow_call:
-    inputs:
-      image_tag:
-        required: true
-        type: string
     outputs:
       image_tag:
-        description: "Tag curta validada"
+        description: "Tag validada a partir do overlay dev"
         value: ${{ jobs.validate.outputs.image_tag }}
+    secrets:
+      ARN_ROLE:
+        required: true
+      GITOPS_TOKEN:
+        required: true
 
 permissions:
   id-token: write
@@ -19,11 +20,11 @@ jobs:
   validate:
     name: Validar imagem para promoção
     runs-on: ubuntu-latest
-    environment: prod
     timeout-minutes: 10
+    environment: prod
 
     outputs:
-      image_tag: ${{ steps.meta.outputs.image_tag }}
+      image_tag: ${{ steps.get_tag.outputs.image_tag }}
 
     steps:
       - name: Configurar credenciais AWS
@@ -32,17 +33,34 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ secrets.ARN_ROLE }}
 
-      - name: Definir tag curta
-        id: meta
+      - name: Checkout repositório GitOps
+        uses: actions/checkout@v4
+        with:
+          repository: wallafidevops/desafio-actions-eks-kustomize-2026
+          ref: develop
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: gitops
+
+      - name: Obter tag atual do overlay dev
+        id: get_tag
         run: |
-          SHORT_SHA="${{ inputs.image_tag }}"
-          SHORT_SHA="${SHORT_SHA::7}"
-          echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_ENV
-          echo "image_tag=$SHORT_SHA" >> $GITHUB_OUTPUT
+          FILE="gitops/k8s/deploy/dev/kustomization.yaml"
+
+          test -f "$FILE" || { echo "Arquivo não encontrado: $FILE"; exit 1; }
+
+          IMAGE_TAG=$(awk '
+            /newName: .*dev-review-filmes/ {found=1; next}
+            found && /newTag:/ {print $2; exit}
+          ' "$FILE")
+
+          test -n "$IMAGE_TAG" || { echo "Não foi possível extrair a tag do overlay dev"; exit 1; }
+
+          echo "Tag encontrada no dev: $IMAGE_TAG"
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
 
       - name: Validar existência da imagem no ECR dev
         run: |
           aws ecr describe-images \
             --repository-name dev-review-filmes \
-            --image-ids imageTag="${SHORT_SHA}" \
+            --image-ids imageTag="${{ steps.get_tag.outputs.image_tag }}" \
             --region "${{ vars.AWS_REGION }}"
