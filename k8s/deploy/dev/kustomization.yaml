@@ -12,12 +12,12 @@ resources:
 - ./postgre.yaml
 
 images:
-- name: .dkr.ecr.us-east-1.amazonaws.com/placeholder
-  newName: .dkr.ecr.us-east-1.amazonaws.com/dev-review-filmes
-  newTag: 06aa78b
+- name: .dkr.ecr..amazonaws.com/placeholder
+  newName: .dkr.ecr..amazonaws.com/dev-review-filmes
+  newTag: d3fb1fc
 - name: 216989136189.dkr.ecr.us-east-1.amazonaws.com/placeholder
   newName: 216989136189.dkr.ecr.us-east-1.amazonaws.com/dev-review-filmes
-  newTag: 155f5d8
+  newTag: 445ae7e
 
 patches:
 - path: replicas.yaml

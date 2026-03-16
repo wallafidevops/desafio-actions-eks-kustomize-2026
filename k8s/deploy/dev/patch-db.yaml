@@ -10,4 +10,4 @@ spec:
         - name: reviewfilmes
           env:
             - name: POSTGRE_HOST
-              value: hml-postgre
+              value: dev-postgre
