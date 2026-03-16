@@ -43,6 +43,7 @@ jobs:
       GIT_BOT_USER: github-actions[bot]
       GIT_BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
 
+      
     steps:
       - name: Definir branch, overlay e repositório
         id: gitops
