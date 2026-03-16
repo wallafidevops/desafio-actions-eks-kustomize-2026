@@ -20,6 +20,7 @@ jobs:
     name: Promover imagem para prod
     runs-on: ubuntu-latest
     environment: prod
+    timeout-minutes: 15
 
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
