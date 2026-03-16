@@ -7,10 +7,10 @@ spec:
   generators:
     - list:
         elements:
-          - name: hml
-            cluster: cluster-hml
-            namespace: hml-reviewfilmes
-            path: k8s/deploy/hml
+          - name: dev
+            cluster: cluster-dev
+            namespace: dev-reviewfilmes
+            path: k8s/deploy/dev
             revision: develop
           - name: prd
             cluster: cluster-prd

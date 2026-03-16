@@ -16,14 +16,14 @@ metadata:
 spec:
   ingressClassName: alb  
   rules:
-  - host: homolog.app.wsnobrega.life
+  - host: dev.app.wsnobrega.life
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: hml-reviewfilmes
+            name: dev-reviewfilmes
             port: 
               number: 80
  

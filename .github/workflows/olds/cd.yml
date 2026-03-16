@@ -4,22 +4,20 @@ on:
   workflow_call:
     inputs:
       environment:
-        required: true
         type: string
-      image_tag:
         required: true
-        type: string
+        description: "Ambiente: hml ou prd"
 
 permissions:
   id-token: write
   contents: read
+  security-events: write
   packages: read
 
 jobs:
   deploy:
     name: Deploy ArgoCD
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
 
     container:
       image: ghcr.io/wallafidevops/template-argocd-kustomize:0.1.0
@@ -28,35 +26,23 @@ jobs:
       run:
         shell: /bin/bash -eo pipefail {0}
 
+    environment: ${{ inputs.environment }}
+
     env:
       AWS_ECR_URI: ${{ vars.ID_ACCOUNT }}.dkr.ecr.us-east-1.amazonaws.com
       IMAGE_NAME: review-filmes
-      IMAGE_TAG: ${{ inputs.image_tag }}
       ARGOCD_SERVER: argocd.app.wsnobrega.life
       ARGOCD_APP_NAME: review-filmes
-      STAGE: ${{ inputs.environment }}
+      STAGE: ${{ vars.STAGE }}
       GIT_BOT_USER: github-actions[bot]
       GIT_BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
 
     steps:
-      - name: Definir branch do GitOps
-        id: gitops
-        run: |
-          if [ "${{ inputs.environment }}" = "prod" ]; then
-            echo "branch=main" >> $GITHUB_OUTPUT
-            echo "overlay=prd" >> $GITHUB_OUTPUT
-            echo "repo_name=prd-${IMAGE_NAME}" >> $GITHUB_OUTPUT
-          else
-            echo "branch=develop" >> $GITHUB_OUTPUT
-            echo "overlay=dev" >> $GITHUB_OUTPUT
-            echo "repo_name=dev-${IMAGE_NAME}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Checkout repositório GitOps
         uses: actions/checkout@v4
         with:
           repository: wallafidevops/desafio-actions-eks-kustomize-2026
-          ref: ${{ steps.gitops.outputs.branch }}
+          ref: ${{ github.ref_name }}
           token: ${{ secrets.GITOPS_TOKEN }}
           path: desafio-actions-eks-kustomize-2026
 
@@ -65,28 +51,30 @@ jobs:
           git config --global user.name "$GIT_BOT_USER"
           git config --global user.email "$GIT_BOT_EMAIL"
 
+
       - name: Atualizar imagem no overlay
         run: |
-          OVERLAY_DIR="desafio-actions-eks-kustomize-2026/k8s/deploy/${{ steps.gitops.outputs.overlay }}"
+          SHORT_SHA="${GITHUB_SHA::7}"
+          OVERLAY_DIR="desafio-actions-eks-kustomize-2026/k8s/deploy/${STAGE}"
 
           test -d "$OVERLAY_DIR" || { echo "Overlay não encontrado: $OVERLAY_DIR"; exit 1; }
 
           cd "$OVERLAY_DIR"
 
           kustomize edit set image \
-            "$AWS_ECR_URI/placeholder=$AWS_ECR_URI/${{ steps.gitops.outputs.repo_name }}:${IMAGE_TAG}"
+            "$AWS_ECR_URI/placeholder=$AWS_ECR_URI/${STAGE}-${IMAGE_NAME}:${SHORT_SHA}"
 
           cd - >/dev/null
 
-          git -C desafio-actions-eks-kustomize-2026 add "k8s/deploy/${{ steps.gitops.outputs.overlay }}/kustomization.yaml"
+          git -C desafio-actions-eks-kustomize-2026 add "k8s/deploy/${STAGE}/kustomization.yaml"
 
           if git -C desafio-actions-eks-kustomize-2026 diff --cached --quiet; then
             echo "Nenhuma mudança detectada."
             exit 0
           fi
 
-          git -C desafio-actions-eks-kustomize-2026 commit -m "[BOT][${STAGE^^}] Atualiza imagem para ${AWS_ECR_URI}/${{ steps.gitops.outputs.repo_name }}:${IMAGE_TAG}"
-          git -C desafio-actions-eks-kustomize-2026 push origin HEAD:${{ steps.gitops.outputs.branch }}
+          git -C desafio-actions-eks-kustomize-2026 commit -m "[BOT] Atualiza imagem para ${AWS_ECR_URI}/${STAGE}-${IMAGE_NAME}:${SHORT_SHA}"
+          git -C desafio-actions-eks-kustomize-2026 push origin HEAD:${{ github.ref_name }}
 
       - name: Sincronizar com ArgoCD
         run: |
@@ -96,4 +84,4 @@ jobs:
             --password "${{ secrets.ARGOCD_PASSWORD }}" \
             --grpc-web
 
-          argocd app sync "${STAGE}-${ARGOCD_APP_NAME}" --force --prune --grpc-web
+          argocd app sync "$STAGE-$ARGOCD_APP_NAME" --force --prune --grpc-web

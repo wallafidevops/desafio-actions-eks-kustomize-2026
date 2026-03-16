@@ -7,8 +7,8 @@ spec:
   sourceRepos:
     - https://github.com/wallafidevops/desafio-actions-eks-kustomize-2026
   destinations:
-    - name: cluster-hml
-      namespace: hml-reviewfilmes
+    - name: cluster-dev
+      namespace: dev-reviewfilmes
     - name: cluster-prd
       namespace: prd-reviewfilmes   # confira se é "prd-" ou "prod-"
   clusterResourceWhitelist:
