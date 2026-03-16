@@ -9,6 +9,11 @@ on:
       image_tag:
         required: true
         type: string
+    secrets:
+      GITOPS_TOKEN:
+        required: true
+      ARGOCD_PASSWORD:
+        required: true
 
 permissions:
   id-token: write
@@ -44,8 +49,8 @@ jobs:
         run: |
           if [ "${{ inputs.environment }}" = "prod" ]; then
             echo "branch=main" >> $GITHUB_OUTPUT
-            echo "overlay=prod" >> $GITHUB_OUTPUT
-            echo "repo_name=prod-${IMAGE_NAME}" >> $GITHUB_OUTPUT
+            echo "overlay=prd" >> $GITHUB_OUTPUT
+            echo "repo_name=prd-${IMAGE_NAME}" >> $GITHUB_OUTPUT
           else
             echo "branch=develop" >> $GITHUB_OUTPUT
             echo "overlay=dev" >> $GITHUB_OUTPUT
