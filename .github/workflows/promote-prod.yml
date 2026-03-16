@@ -10,6 +10,9 @@ on:
       image_tag:
         description: "Tag promovida"
         value: ${{ jobs.promote.outputs.image_tag }}
+    secrets:
+      ARN_ROLE:
+        required: true
 
 permissions:
   id-token: write
@@ -32,19 +35,19 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ secrets.ARN_ROLE }}
 
-      - name: Definir tag curta
+      - name: Definir tag
         id: meta
         run: |
-          SHORT_SHA="${{ inputs.image_tag }}"
-          SHORT_SHA="${SHORT_SHA::7}"
-          echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_ENV
-          echo "image_tag=$SHORT_SHA" >> $GITHUB_OUTPUT
+          IMAGE_TAG="${{ inputs.image_tag }}"
+          test -n "$IMAGE_TAG" || { echo "image_tag vazio"; exit 1; }
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
       - name: Obter manifesto da imagem de dev
         run: |
           aws ecr batch-get-image \
             --repository-name dev-review-filmes \
-            --image-ids imageTag="${SHORT_SHA}" \
+            --image-ids imageTag="${IMAGE_TAG}" \
             --query 'images[0].imageManifest' \
             --output text > image-manifest.json
 
@@ -54,7 +57,7 @@ jobs:
         run: |
           aws ecr put-image \
             --repository-name prd-review-filmes \
-            --image-tag "${SHORT_SHA}" \
+            --image-tag "${IMAGE_TAG}" \
             --image-manifest file://image-manifest.json
 
           aws ecr put-image \

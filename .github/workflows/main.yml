@@ -58,9 +58,9 @@ jobs:
       github.event.pull_request.base.ref == 'main' &&
       github.actor != 'github-actions[bot]'
     uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/validate-prod.yml@main
-    with:
-      image_tag: ${{ github.event.pull_request.head.sha }}
-    secrets: inherit
+    secrets:
+      ARN_ROLE: ${{ secrets.ARN_ROLE }}
+      GITOPS_TOKEN: ${{ secrets.GITOPS_TOKEN }}
 
   promote-prod:
     name: promote-prod
@@ -72,7 +72,8 @@ jobs:
     uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/promote-prod.yml@main
     with:
       image_tag: ${{ needs.validate-prod.outputs.image_tag }}
-    secrets: inherit
+    secrets:
+      ARN_ROLE: ${{ secrets.ARN_ROLE }}
 
   cd-prod:
     name: cd-prod
