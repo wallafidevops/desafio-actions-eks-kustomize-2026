@@ -19,6 +19,7 @@ jobs:
   validate:
     name: Validar imagem para promoção
     runs-on: ubuntu-latest
+    environment: prod
     timeout-minutes: 10
 
     outputs:
