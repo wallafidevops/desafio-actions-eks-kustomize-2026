@@ -34,7 +34,7 @@ jobs:
         shell: /bin/bash -eo pipefail {0}
 
     env:
-      AWS_ECR_URI: ${{ vars.ID_ACCOUNT }}.dkr.ecr.us-east-1.amazonaws.com
+      AWS_ECR_URI: ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
       IMAGE_NAME: review-filmes
       IMAGE_TAG: ${{ inputs.image_tag }}
       ARGOCD_SERVER: argocd.app.wsnobrega.life
@@ -43,6 +43,7 @@ jobs:
       GIT_BOT_USER: github-actions[bot]
       GIT_BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
 
+      
     steps:
       - name: Definir branch, overlay e repositório
         id: gitops
