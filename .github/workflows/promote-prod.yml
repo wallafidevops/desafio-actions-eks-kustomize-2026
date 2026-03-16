@@ -1,0 +1,62 @@
+name: Promote Image to Prod
+
+on:
+  workflow_call:
+    inputs:
+      image_tag:
+        required: true
+        type: string
+    outputs:
+      image_tag:
+        description: "Tag promovida"
+        value: ${{ jobs.promote.outputs.image_tag }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  promote:
+    name: Promover imagem para prod
+    runs-on: ubuntu-latest
+    environment: prod
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+
+    steps:
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ secrets.ARN_ROLE }}
+
+      - name: Definir tag curta
+        id: meta
+        run: |
+          SHORT_SHA="${{ inputs.image_tag }}"
+          SHORT_SHA="${SHORT_SHA::7}"
+          echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_ENV
+          echo "image_tag=$SHORT_SHA" >> $GITHUB_OUTPUT
+
+      - name: Obter manifesto da imagem de dev
+        run: |
+          aws ecr batch-get-image \
+            --repository-name dev-review-filmes \
+            --image-ids imageTag="${SHORT_SHA}" \
+            --query 'images[0].imageManifest' \
+            --output text > image-manifest.json
+
+          test -s image-manifest.json || { echo "Manifesto não encontrado."; exit 1; }
+
+      - name: Promover imagem para o ECR prod
+        run: |
+          aws ecr put-image \
+            --repository-name prd-review-filmes \
+            --image-tag "${SHORT_SHA}" \
+            --image-manifest file://image-manifest.json
+
+          aws ecr put-image \
+            --repository-name prd-review-filmes \
+            --image-tag latest \
+            --image-manifest file://image-manifest.json

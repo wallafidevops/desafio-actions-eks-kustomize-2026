@@ -1,4 +1,4 @@
-name: Pipeline CI 
+name: Pipeline Etapa CI
 
 on:
   workflow_call:
@@ -6,13 +6,6 @@ on:
       environment:
         required: true
         type: string
-      image_tag:
-        required: true
-        type: string
-    outputs:
-      image_tag:
-        description: "Tag curta da imagem gerada"
-        value: ${{ jobs.ci.outputs.image_tag }}
 
 permissions:
   contents: read
@@ -20,15 +13,11 @@ permissions:
   security-events: write
   packages: read
 
-concurrency:
-  group: ci-dev-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   unit-testes:
     name: Testes unitários
-    runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -39,26 +28,18 @@ jobs:
         with:
           dotnet-version: 8.0.300
 
-      - name: Cache NuGet
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
-
       - name: Restore
         working-directory: ./src
         run: dotnet restore Review-Filmes.sln
 
-      - name: Testes unitários
+      - name: Executando testes unitários
         working-directory: ./src
         run: dotnet test ./Review-Filmes.Test.Unit/Review-Filmes.Test.Unit.csproj --no-restore --verbosity normal
 
   integration-testes:
     name: Testes de integração
-    runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
 
     services:
       postgres:
@@ -70,7 +51,6 @@ jobs:
         ports:
           - 5432:5432
 
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -80,31 +60,22 @@ jobs:
         with:
           dotnet-version: 8.0.300
 
-      - name: Cache NuGet
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
-
       - name: Restore
         working-directory: ./src
         run: dotnet restore Review-Filmes.sln
 
-      - name: Testes de integração
+      - name: Executando testes de integração
         working-directory: ./src
         run: dotnet test ./Review-Filmes.Test.Integration/Review-Filmes.Test.Integration.csproj --no-restore --verbosity normal
         env:
           ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=review-filmes;Username=review;Password=postgrespwd"
 
   sonarqube:
-    name: Análise SonarQube
-    runs-on: ubuntu-latest
+    name: Análise de código
     environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
     needs:
       - unit-testes
-      - integration-testes
 
     steps:
       - name: Checkout
@@ -116,22 +87,14 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: '21'
 
       - name: Setup dotnet
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 8.0.300
 
-      - name: Cache NuGet
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
-
-      - name: Instalar SonarScanner
+      - name: Instalação SonarScanner
         run: dotnet tool install --global dotnet-sonarscanner
 
       - name: Restore
@@ -142,14 +105,11 @@ jobs:
         working-directory: ./src
         run: |
           export PATH="$PATH:/home/runner/.dotnet/tools"
-          dotnet sonarscanner begin \
-            /k:"dev-review-filmes" \
-            /d:sonar.host.url="${{ secrets.SONAR_HOST_URL }}" \
-            /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+          dotnet sonarscanner begin /k:"${{ vars.STAGE }}-review-filmes" /d:sonar.host.url="${{ secrets.SONAR_HOST_URL }}" /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
           dotnet build Review-Filmes.sln --no-restore
           dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
 
-      - name: Quality Gate
+      - name: Verificação do Quality Gate
         uses: sonarsource/sonarqube-quality-gate-action@master
         id: sonarqube-quality-gate-check
         env:
@@ -158,38 +118,27 @@ jobs:
         with:
           scanMetadataReportFile: ./src/.sonarqube/out/.sonar/report-task.txt
 
-      - name: Exibir status
+      - name: Exibir status do Quality Gate
         if: ${{ always() }}
-        run: echo "Quality Gate falhou na etapa ${{ steps.sonarqube-quality-gate-check.outputs.status }}"
+        run: echo "Quality Gate falhou na etapa ${{ steps.sonarqube-quality-gate-check.outputs.status }}" 
 
   ci:
-    name: Build e Push Dev
-    runs-on: ubuntu-latest
+    name: ci-${{ inputs.environment }} 
     environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
     needs:
       - unit-testes
       - integration-testes
       - sonarqube
 
-    outputs:
-      image_tag: ${{ steps.meta.outputs.image_tag }}
-
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup dotnet
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 8.0.300
-
-      - name: Cache NuGet
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
 
       - name: Restore
         working-directory: ./src
@@ -199,24 +148,19 @@ jobs:
         working-directory: ./src
         run: dotnet build Review-Filmes.sln --no-restore
 
-      - name: Configurar credenciais AWS
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ secrets.ARN_ROLE }}
 
-      - name: Login no ECR
+      - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Definir tag curta
-        id: meta
-        run: |
-          SHORT_SHA="${{ inputs.image_tag }}"
-          SHORT_SHA="${SHORT_SHA::7}"
-          echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_ENV
-          echo "image_tag=$SHORT_SHA" >> $GITHUB_OUTPUT
+      - name: Definir tag SHA curta
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
-      - name: Build da imagem
+      - name: Build image
         uses: docker/build-push-action@v6
         with:
           context: ./src
@@ -224,31 +168,25 @@ jobs:
           load: true
           push: false
           tags: |
-            ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/dev-review-filmes:${{ env.SHORT_SHA }}
-            ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/dev-review-filmes:latest
+            ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.STAGE }}-review-filmes:latest
+            ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.STAGE }}-review-filmes:${{ env.SHORT_SHA }}
 
       - name: Trivy image scan
         uses: aquasecurity/trivy-action@0.23.0
         with:
           scan-type: image
-          image-ref: ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/dev-review-filmes:${{ env.SHORT_SHA }}
+          image-ref: ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.STAGE }}-review-filmes:${{ env.SHORT_SHA }}
           format: sarif
           output: trivy-docker-result.sarif
           severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
-
-      - name: Upload SARIF para GitHub Security
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-docker-result.sarif
 
       - name: Upload SARIF para S3
         if: always()
         run: |
           aws s3 cp trivy-docker-result.sarif \
-            s3://${{ secrets.BUCKET_PATH }}/dev/sast/review-filmes-${{ env.SHORT_SHA }}.sarif
+            s3://${{ secrets.BUCKET_PATH }}/${{ vars.STAGE }}/sast/hello-world-${{ env.SHORT_SHA }}.sarif
 
-      - name: Push da imagem
+      - name: Push image
         run: |
-          docker push ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/dev-review-filmes:${SHORT_SHA}
-          docker push ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/dev-review-filmes:latest
+          docker push ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.STAGE }}-review-filmes:${SHORT_SHA}
+          docker push ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.STAGE }}-review-filmes:latest

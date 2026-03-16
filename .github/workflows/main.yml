@@ -1,68 +1,71 @@
 name: Pipeline CI/CD
-run-name: Pipeline CI/CD executada por ${{ github.actor }} em ${{ github.ref }}
+
+run-name: Pipeline CI/CD executada por ${{ github.actor }} em ${{ github.ref_name }}
 
 permissions:
-   contents: read
-   id-token: write
-   security-events: write
-   packages: read
+  contents: read
+  id-token: write
+  security-events: write
+  packages: read
 
 on:
   pull_request:
     branches:
-      - main
       - develop
+      - main
     types:
-      - closed 
+      - closed
     paths-ignore:
-      - k8s/deploy/prd/*
-      - k8s/deploy/hml/*    
-  workflow_dispatch:  
-##role : gha-wallafidevops-adminless
+      - "k8s/deploy/dev/**"
+      - "k8s/deploy/prd/**"
+
+concurrency:
+  group: cicd-${{ github.workflow }}-${{ github.event.pull_request.base.ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  checkout:
-    name: checkout
-    if: github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4.1.5
-
   ci-dev:
     name: ci-dev
-    if: github.event.pull_request.merged == true && github.base_ref == 'develop'
-    needs: [checkout]
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'develop'
     uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/ci.yml@develop
     with:
       environment: dev
-    secrets: inherit
-
-
-  ci-prod:
-    name: ci-prod
-    if: github.event.pull_request.merged == true && github.base_ref == 'main'
-    needs: [checkout]
-    uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/ci.yml@main
-    with:
-      environment: prod
+      image_tag: ${{ github.event.pull_request.head.sha }}
     secrets: inherit
 
   cd-dev:
-    name: cd-dev  
-    if: github.event.pull_request.merged == true && github.base_ref == 'develop'
+    name: cd-dev
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'develop'
     needs: [ci-dev]
     uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/cd.yml@develop
     with:
-      environment: dev  
+      environment: dev
+      image_tag: ${{ needs.ci-dev.outputs.image_tag }}
+    secrets: inherit
+
+  validate-prod:
+    name: validate-prod
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/validate-prod.yml@main
+    with:
+      image_tag: ${{ github.event.pull_request.head.sha }}
+    secrets: inherit
+
+  promote-prod:
+    name: promote-prod
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    needs: [validate-prod]
+    uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/promote-prod.yml@main
+    with:
+      image_tag: ${{ needs.validate-prod.outputs.image_tag }}
     secrets: inherit
 
   cd-prod:
     name: cd-prod
-    if: github.event.pull_request.merged == true && github.base_ref == 'main'
-    needs: [ci-prod]
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    needs: [promote-prod]
     uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/cd.yml@main
     with:
       environment: prod
+      image_tag: ${{ needs.promote-prod.outputs.image_tag }}
     secrets: inherit
-
