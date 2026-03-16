@@ -26,7 +26,10 @@ concurrency:
 jobs:
   ci-dev:
     name: ci-dev
-    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'develop'
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'develop' &&
+      github.actor != 'github-actions[bot]'
     uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/ci.yml@develop
     with:
       environment: dev
@@ -35,7 +38,10 @@ jobs:
 
   cd-dev:
     name: cd-dev
-    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'develop'
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'develop' &&
+      github.actor != 'github-actions[bot]'
     needs: [ci-dev]
     uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/cd.yml@develop
     with:
@@ -45,7 +51,10 @@ jobs:
 
   validate-prod:
     name: validate-prod
-    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.actor != 'github-actions[bot]'
     uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/validate-prod.yml@main
     with:
       image_tag: ${{ github.event.pull_request.head.sha }}
@@ -53,7 +62,10 @@ jobs:
 
   promote-prod:
     name: promote-prod
-    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.actor != 'github-actions[bot]'
     needs: [validate-prod]
     uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/promote-prod.yml@main
     with:
@@ -62,7 +74,10 @@ jobs:
 
   cd-prod:
     name: cd-prod
-    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.actor != 'github-actions[bot]'
     needs: [promote-prod]
     uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/cd.yml@main
     with:
