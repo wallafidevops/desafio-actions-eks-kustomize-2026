@@ -25,6 +25,7 @@ jobs:
     name: Deploy ArgoCD
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: ${{ inputs.environment }}
 
     container:
       image: ghcr.io/wallafidevops/template-argocd-kustomize:0.1.0
@@ -43,7 +44,7 @@ jobs:
       GIT_BOT_USER: github-actions[bot]
       GIT_BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
 
-      
+
     steps:
       - name: Definir branch, overlay e repositório
         id: gitops
