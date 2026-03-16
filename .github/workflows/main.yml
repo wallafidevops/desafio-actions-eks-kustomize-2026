@@ -26,10 +26,7 @@ concurrency:
 jobs:
   ci-dev:
     name: ci-dev
-    if: >
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.base.ref == 'develop' &&
-      github.actor != 'github-actions[bot]'
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'develop'
     uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/ci.yml@develop
     with:
       environment: dev
@@ -38,56 +35,37 @@ jobs:
 
   cd-dev:
     name: cd-dev
-    if: >
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.base.ref == 'develop' &&
-      github.actor != 'github-actions[bot]'
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'develop'
     needs: [ci-dev]
     uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/cd.yml@develop
     with:
       environment: dev
       image_tag: ${{ needs.ci-dev.outputs.image_tag }}
-    secrets:
-      GITOPS_TOKEN: ${{ secrets.GITOPS_TOKEN }}
-      ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
+    secrets: inherit
 
   validate-prod:
     name: validate-prod
-    if: >
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.base.ref == 'main' &&
-      github.actor != 'github-actions[bot]'
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
     uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/validate-prod.yml@main
-    secrets:
-      ARN_ROLE: ${{ secrets.ARN_ROLE }}
-      GITOPS_TOKEN: ${{ secrets.GITOPS_TOKEN }}
+    with:
+      image_tag: ${{ github.event.pull_request.head.sha }}
+    secrets: inherit
 
   promote-prod:
     name: promote-prod
-    if: >
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.base.ref == 'main' &&
-      github.actor != 'github-actions[bot]'
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
     needs: [validate-prod]
     uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/promote-prod.yml@main
     with:
       image_tag: ${{ needs.validate-prod.outputs.image_tag }}
-    secrets:
-      ARN_ROLE: ${{ secrets.ARN_ROLE }}
+    secrets: inherit
 
   cd-prod:
     name: cd-prod
-    if: >
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.base.ref == 'main' &&
-      github.actor != 'github-actions[bot]'
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
     needs: [promote-prod]
     uses: wallafidevops/desafio-actions-eks-kustomize-2026/.github/workflows/cd.yml@main
     with:
       environment: prod
       image_tag: ${{ needs.promote-prod.outputs.image_tag }}
-    secrets:
-      GITOPS_TOKEN: ${{ secrets.GITOPS_TOKEN }}
-      ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
-
-      
+    secrets: inherit
