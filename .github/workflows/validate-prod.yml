@@ -36,7 +36,7 @@ jobs:
       - name: Checkout repositório GitOps
         uses: actions/checkout@v4
         with:
-          repository: wallafidevops/desafio-actions-eks-kustomize-2026
+          repository: PSG-ECO-GERs/poc-cicd-promote
           ref: develop
           token: ${{ secrets.GITOPS_TOKEN }}
           path: gitops

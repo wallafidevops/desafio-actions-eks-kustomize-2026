@@ -12,12 +12,13 @@ on:
     secrets:
       GITOPS_TOKEN:
         required: true
-      ARGOCD_PASSWORD:
-        required: true
+      # ARGOCD_PASSWORD:
+      #   required: true
 
 permissions:
   id-token: write
   contents: read
+  security-events: write
   packages: read
 
 jobs:
@@ -29,6 +30,9 @@ jobs:
 
     container:
       image: ghcr.io/wallafidevops/template-argocd-kustomize:0.1.0
+      # credentials:
+      #   username: ${{ github.actor }}
+      #   password: ${{ secrets.GITHUB_TOKEN }}
 
     defaults:
       run:
@@ -38,12 +42,11 @@ jobs:
       AWS_ECR_URI: ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
       IMAGE_NAME: review-filmes
       IMAGE_TAG: ${{ inputs.image_tag }}
-      ARGOCD_SERVER: argocd.app.wsnobrega.life
-      ARGOCD_APP_NAME: review-filmes
+      # ARGOCD_SERVER: argocd.app.wsnobrega.life
+      # ARGOCD_APP_NAME: review-filmes
       STAGE: ${{ inputs.environment }}
       GIT_BOT_USER: github-actions[bot]
       GIT_BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
-
 
     steps:
       - name: Definir branch, overlay e repositório
@@ -58,6 +61,12 @@ jobs:
             echo "overlay=dev" >> $GITHUB_OUTPUT
             echo "repo_name=dev-${IMAGE_NAME}" >> $GITHUB_OUTPUT
           fi
+
+      - name: Validar variáveis
+        run: |
+          echo "AWS_ECR_URI=$AWS_ECR_URI"
+          test -n "$AWS_ECR_URI" || { echo "AWS_ECR_URI está vazio"; exit 1; }
+          test -n "$IMAGE_TAG" || { echo "IMAGE_TAG está vazio"; exit 1; }
 
       - name: Checkout repositório GitOps
         uses: actions/checkout@v4
@@ -82,7 +91,7 @@ jobs:
           cd "$OVERLAY_DIR"
 
           kustomize edit set image \
-            "$AWS_ECR_URI/placeholder=$AWS_ECR_URI/${{ steps.gitops.outputs.repo_name }}:${IMAGE_TAG}"
+            "placeholder=$AWS_ECR_URI/${{ steps.gitops.outputs.repo_name }}:${IMAGE_TAG}"
 
       - name: Validar render do Kustomize
         run: |
@@ -101,13 +110,14 @@ jobs:
           git -C gitops commit -m "[BOT][${STAGE^^}] Atualiza imagem para ${AWS_ECR_URI}/${{ steps.gitops.outputs.repo_name }}:${IMAGE_TAG}"
           git -C gitops push origin HEAD:${{ steps.gitops.outputs.branch }}
 
-      - name: Sincronizar com ArgoCD
-        run: |
-          argocd login "$ARGOCD_SERVER" \
-            --insecure \
-            --username admin \
-            --password "${{ secrets.ARGOCD_PASSWORD }}" \
-            --grpc-web
+      # - name: Sincronizar com ArgoCD
+      #   run: |
+      #     argocd login "$ARGOCD_SERVER" \
+      #       --insecure \
+      #       --username admin \
+      #       --password "${{ secrets.ARGOCD_PASSWORD }}" \
+      #       --grpc-web
 
-          argocd app sync "${STAGE}-${ARGOCD_APP_NAME}" --force --prune --grpc-web
-          
+      #     argocd app sync "${STAGE}-${ARGOCD_APP_NAME}" --force --prune --grpc-web
+
+      

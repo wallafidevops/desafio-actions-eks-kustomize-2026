@@ -5,16 +5,16 @@ kind: Kustomization
 namePrefix: dev-
 namespace: dev-reviewfilmes
 
+# - ./ingress.yaml
 resources:
 - ../base
-- ./ingress.yaml
 - ./service.yaml
 - ./postgre.yaml
 
 images:
-- name: 216989136189.dkr.ecr.us-east-1.amazonaws.com/placeholder
+- name: placeholder
   newName: 216989136189.dkr.ecr.us-east-1.amazonaws.com/dev-review-filmes
-  newTag: d3fb1fc
+  newTag: 24eb3d3
 
 patches:
 - path: replicas.yaml
