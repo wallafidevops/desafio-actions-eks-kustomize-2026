@@ -8,12 +8,12 @@ spec:
     - list:
         elements:
           - name: dev
-            cluster: cluster-dev
+            cluster: prd-psg-v1
             namespace: dev-reviewfilmes
             path: k8s/deploy/dev
             revision: develop
           - name: prd
-            cluster: cluster-prd
+            cluster: prd-psg-v1
             namespace: prd-reviewfilmes
             path: k8s/deploy/prd
             revision: main

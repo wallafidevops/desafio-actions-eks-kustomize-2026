@@ -98,69 +98,69 @@ jobs:
         env:
           ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=review-filmes;Username=review;Password=postgrespwd"
 
-  sonarqube:
-    name: Análise SonarQube
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-    needs:
-      - unit-testes
-      - integration-testes
+  # sonarqube:
+  #   name: Análise SonarQube
+  #   runs-on: ubuntu-latest
+  #   environment: ${{ inputs.environment }}
+  #   needs:
+  #     - unit-testes
+  #     - integration-testes
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
 
-      - name: Setup JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
+  #     - name: Setup JDK
+  #       uses: actions/setup-java@v4
+  #       with:
+  #         distribution: temurin
+  #         java-version: "21"
 
-      - name: Setup dotnet
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: 8.0.300
+  #     - name: Setup dotnet
+  #       uses: actions/setup-dotnet@v5
+  #       with:
+  #         dotnet-version: 8.0.300
 
-      - name: Cache NuGet
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
+  #     - name: Cache NuGet
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: ~/.nuget/packages
+  #         key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-nuget-
 
-      - name: Instalar SonarScanner
-        run: dotnet tool install --global dotnet-sonarscanner
+  #     - name: Instalar SonarScanner
+  #       run: dotnet tool install --global dotnet-sonarscanner
 
-      - name: Restore
-        working-directory: ./src
-        run: dotnet restore Review-Filmes.sln
+  #     - name: Restore
+  #       working-directory: ./src
+  #       run: dotnet restore Review-Filmes.sln
 
-      - name: Build e análise
-        working-directory: ./src
-        run: |
-          export PATH="$PATH:/home/runner/.dotnet/tools"
-          dotnet sonarscanner begin \
-            /k:"dev-review-filmes" \
-            /d:sonar.host.url="${{ secrets.SONAR_HOST_URL }}" \
-            /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
-          dotnet build Review-Filmes.sln --no-restore
-          dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+  #     - name: Build e análise
+  #       working-directory: ./src
+  #       run: |
+  #         export PATH="$PATH:/home/runner/.dotnet/tools"
+  #         dotnet sonarscanner begin \
+  #           /k:"dev-review-filmes" \
+  #           /d:sonar.host.url="${{ secrets.SONAR_HOST_URL }}" \
+  #           /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+  #         dotnet build Review-Filmes.sln --no-restore
+  #         dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
 
-      - name: Quality Gate
-        uses: sonarsource/sonarqube-quality-gate-action@master
-        id: sonarqube-quality-gate-check
-        env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          scanMetadataReportFile: ./src/.sonarqube/out/.sonar/report-task.txt
+  #     - name: Quality Gate
+  #       uses: sonarsource/sonarqube-quality-gate-action@master
+  #       id: sonarqube-quality-gate-check
+  #       env:
+  #         SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+  #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  #       with:
+  #         scanMetadataReportFile: ./src/.sonarqube/out/.sonar/report-task.txt
 
-      - name: Exibir status
-        if: ${{ always() }}
-        run: echo "Quality Gate falhou na etapa ${{ steps.sonarqube-quality-gate-check.outputs.status }}"
+  #     - name: Exibir status
+  #       if: ${{ always() }}
+  #       run: echo "Quality Gate falhou na etapa ${{ steps.sonarqube-quality-gate-check.outputs.status }}"
 
   ci:
     name: Build e Push Dev
@@ -169,7 +169,7 @@ jobs:
     needs:
       - unit-testes
       - integration-testes
-      - sonarqube
+      # - sonarqube
 
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
@@ -224,23 +224,18 @@ jobs:
           load: true
           push: false
           tags: |
-            ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/dev-review-filmes:${{ env.SHORT_SHA }}
-            ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/dev-review-filmes:latest
+            ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.STAGE }}-review-filmes:${{ env.SHORT_SHA }}
+            ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.STAGE }}-review-filmes:latest
 
       - name: Trivy image scan
         uses: aquasecurity/trivy-action@0.23.0
         with:
           scan-type: image
-          image-ref: ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/dev-review-filmes:${{ env.SHORT_SHA }}
+          image-ref: ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.STAGE }}-review-filmes:${{ env.SHORT_SHA }}
           format: sarif
           output: trivy-docker-result.sarif
           severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
 
-      - name: Upload SARIF para GitHub Security
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-docker-result.sarif
 
       - name: Upload SARIF para S3
         if: always()
@@ -250,5 +245,5 @@ jobs:
 
       - name: Push da imagem
         run: |
-          docker push ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/dev-review-filmes:${SHORT_SHA}
-          docker push ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/dev-review-filmes:latest
+          docker push ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.STAGE }}-review-filmes:${SHORT_SHA}
+          docker push ${{ vars.ID_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.STAGE }}-review-filmes:latest

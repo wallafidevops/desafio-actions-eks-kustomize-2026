@@ -8,12 +8,12 @@ namespace: prd-reviewfilmes
 
 resources:
 - ../base
-- ./ingress.yaml
+# - ./ingress.yaml
 - ./service.yaml
 - ./postgre.yaml
 
 images:
-- name: 216989136189.dkr.ecr.us-east-1.amazonaws.com/placeholder
+- name: placeholder
   newName: 216989136189.dkr.ecr.us-east-1.amazonaws.com/prd-review-filmes
   newTag: "4771544"
 
