@@ -7,9 +7,9 @@ spec:
   sourceRepos:
     - https://github.com/wallafidevops/desafio-actions-eks-kustomize-2026
   destinations:
-    - name: prd-psg-v1
+    - name: cluster-dev
       namespace: dev-reviewfilmes
-    - name: prd-psg-v1
+    - name: cluster-prd
       namespace: prd-reviewfilmes   # confira se é "prd-" ou "prod-"
   clusterResourceWhitelist:
     - group: '*'
