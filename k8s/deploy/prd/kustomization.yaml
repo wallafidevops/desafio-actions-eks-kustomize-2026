@@ -6,16 +6,16 @@ kind: Kustomization
 namePrefix: prd-
 namespace: prd-reviewfilmes
 
+# - ./ingress.yaml
 resources:
 - ../base
-# - ./ingress.yaml
 - ./service.yaml
 - ./postgre.yaml
 
 images:
 - name: placeholder
   newName: 216989136189.dkr.ecr.us-east-1.amazonaws.com/prd-review-filmes
-  newTag: "4771544"
+  newTag: cd6c637
 
 patches:
 - path: replicas.yaml
