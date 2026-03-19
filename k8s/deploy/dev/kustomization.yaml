@@ -14,7 +14,8 @@ resources:
 images:
 - name: placeholder
   newName: 216989136189.dkr.ecr.us-east-1.amazonaws.com/dev-review-filmes
-  newTag: 24eb3d3
+  newTag: 5d6c5dd
+
 
 patches:
 - path: replicas.yaml
